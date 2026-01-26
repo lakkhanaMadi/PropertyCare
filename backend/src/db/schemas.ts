@@ -4,27 +4,23 @@ import { pgTable, integer, uuid, text, boolean, timestamp, time, pgEnum, numeric
 
 
 //user
-export const users = pgTable('users', {
-  id: uuid('id').notNull().primaryKey().defaultRandom(),
-  clerk_user_id: text('clerk_user_id').notNull(),
-  email: text('email').unique().notNull(),
-  user_name: text('name').notNull(),
-  avatar_url: text('avatar_url'),
-  phone_number: text('phone_number').notNull(),
-  phone_verified: boolean('phone_verified'),
-  is_active: boolean('is_active'),
-  created_at: timestamp('created_at').notNull(),
-  updated_at: timestamp('updated_at').notNull(),
-});
-
-
-//user roles
 export const rolesEnum = pgEnum('roles', ['homeowner', 'worker', 'admin']);
 
-export const user_roles = pgTable('user_roles', {
-  id: uuid('id').references(() => users.id, { onDelete: 'cascade', onUpdate: 'cascade' }).primaryKey(),
-  role: rolesEnum('role').notNull()
+export const users = pgTable('users', {
+  id: uuid('id').notNull().primaryKey().defaultRandom(),
+  clerk_user_id: text('clerk_user_id'),
+  email: text('email').unique().notNull(),
+  user_name: text('name').notNull(),
+  role: rolesEnum('role').notNull().default('homeowner'),
+  avatar_url: text('avatar_url'),
+  phone_number: text('phone_number'),
+  phone_verified: boolean('phone_verified').default(false),
+  is_active: boolean('is_active').default(false),
+  created_at: timestamp('created_at').notNull().defaultNow(),
+  updated_at: timestamp('updated_at').notNull().defaultNow(),
 });
+
+
 
 //workers table
 export const worker_profiles = pgTable('worker_profiles', {
@@ -62,8 +58,7 @@ export const worker_services = pgTable('worker_services', {
 },
   (table) => ({
 
-    //to make sure max_price and min_price is non negative
-
+    //to make sure max_price and min_price is non negative and max price >= min price
     pricePositive: check('price_positive', sql`${table.price_min}>=0 AND ${table.price_max} >=0`),
     priceRangeValid: check('price_range_valid', sql`${table.price_max}>= ${table.price_min}`)
   })
