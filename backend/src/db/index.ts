@@ -11,6 +11,7 @@ export async function testConenction() {
   try {
     const client = await pool.connect();
     console.log("Database connected");
+    client.release();
   } catch (error) {
     console.log("Error connecting database: ", error)
   }

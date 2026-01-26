@@ -1,6 +1,6 @@
 {
   "compilerOptions": {
-    "rootDir": "./src", // Where your source files are
+    "rootDir": "", // Where your source files are
     "outDir": "./dist", // Where compiled JS goes
     "module": "commonjs", // Output format (require/module.exports)
     "target": "es2022", // JS version to compile to (modern)
@@ -9,10 +9,14 @@
     "skipLibCheck": true, // Skips type-checking .d.ts files (faster builds)
     "moduleResolution": "node", // How TS finds modules (node_modules lookup)
     "resolveJsonModule": true, // Allows importing .json files
-    "forceConsistentCasingInFileNames": true // Prevents case-sensitivity bugs
+    "forceConsistentCasingInFileNames": true,
+    "types": [
+      "node"
+    ] // Prevents case-sensitivity bugs
   },
   "include": [
-    "src/**/*.ts"
+    "src/**/*.ts",
+    "drizzle.config.ts"
   ], // Which files to compile
   "exclude": [
     "node_modules"
