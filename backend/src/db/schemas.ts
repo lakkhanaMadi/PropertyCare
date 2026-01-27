@@ -169,3 +169,27 @@ export const messagesRelations = relations(messages, ({ one, many }) => ({
   chat: one(chats, { fields: [messages.chat_id], references: [chats.id] })
 }));
 
+//type Inference
+export type User = typeof users.$inferSelect;
+export type NewUser = typeof users.$inferInsert;
+
+export type WorkerProfile = typeof users.$inferSelect;
+export type NewWorkerProfile = typeof users.$inferInsert;
+
+export type Service = typeof users.$inferSelect;
+export type NewService = typeof users.$inferInsert;
+
+export type WorkerService = typeof users.$inferSelect;
+export type NewWorkerService = typeof users.$inferInsert;
+
+export type Booking = typeof users.$inferSelect;
+export type NewBooking = typeof users.$inferInsert;
+
+export type Reviews = typeof users.$inferSelect;
+export type NewReview = typeof users.$inferInsert;
+
+export type Chat = typeof users.$inferSelect;
+export type NewChat = typeof users.$inferInsert;
+
+export type Message = typeof users.$inferSelect;
+export type NewMessage = typeof users.$inferInsert;
