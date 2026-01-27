@@ -1,7 +1,9 @@
 import { Request, Response } from "express";
 import { db } from "../db/index";
-import { messageEnum, users } from "../db/schemas";
+import { users } from "../db/schemas";
 import { eq } from "drizzle-orm";
+import { getAuth } from "@clerk/express";
+import { ClerkClient } from "@clerk/express";
 
 export const createUser = async (req: Request, res: Response) => {
 
@@ -10,6 +12,8 @@ export const createUser = async (req: Request, res: Response) => {
 
   try {
     const { email, user_name, role, avatar_url, phone_number } = req.body;
+
+
 
     //check for empty field inputs
     if (!email || !user_name) {
@@ -43,7 +47,7 @@ export const createUser = async (req: Request, res: Response) => {
     const safeRole = allowedRoles.includes(role) ? role : "homeowner";
 
     //insert user into db
-    const newUser = await db.insert(users).values({
+    const [newUser] = await db.insert(users).values({
       email,
       user_name,
       role: safeRole,

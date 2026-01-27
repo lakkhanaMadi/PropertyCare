@@ -1,6 +1,6 @@
 import express from "express";
 import { ENV } from "./config/env";
-import { clerkMiddleware } from "@clerk/express";
+import { clerkMiddleware, requireAuth } from "@clerk/express";
 import { testConenction } from "./db/index";
 import cors from "cors";
 
