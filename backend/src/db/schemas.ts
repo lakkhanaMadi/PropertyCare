@@ -1,6 +1,6 @@
 
 import { relations, sql } from "drizzle-orm";
-import { pgTable, integer, uuid, text, boolean, timestamp, time, pgEnum, numeric, check, date, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, integer, uuid, text, boolean, timestamp, time, pgEnum, numeric, check, date, jsonb, unique } from "drizzle-orm/pg-core";
 
 
 //user
@@ -25,7 +25,7 @@ export const users = pgTable('users', {
 export const worker_profiles = pgTable('worker_profiles', {
   id: uuid('id').primaryKey().defaultRandom().notNull(),
   worker_id: uuid('worker_id').references(() => users.id, { onDelete: "cascade" })
-    .notNull(),
+    .notNull().unique(),
   bio: text('bio'),
   exprience_years: integer('experience_years'),
   service_radius: integer('service_radius'),
@@ -38,9 +38,9 @@ export const worker_profiles = pgTable('worker_profiles', {
 
 //services table
 export const services = pgTable('services', {
-  id: uuid('id').defaultRandom().notNull().primaryKey(),
-  name: text('name').notNull(),
-  description: text('description'),
+  id: uuid('id').notNull().primaryKey().defaultRandom(),
+  name: text('name').notNull().unique(),
+  description: text('description').notNull(),
   created_at: timestamp('created_at', { mode: "date" }).notNull().defaultNow(),
   updated_at: timestamp('updated_at', { mode: "date" }).notNull().defaultNow().$onUpdate(() => new Date())
 
@@ -59,6 +59,7 @@ export const worker_services = pgTable('worker_services', {
 
 },
   (table) => ({
+    workerServiceUnique: unique().on(table.worker_id,table.service_id),
 
     //to make sure max_price and min_price is non negative and max price >= min price
     pricePositive: check('price_positive', sql`${table.price_min}>=0 AND ${table.price_max} >=0`),
@@ -173,23 +174,23 @@ export const messagesRelations = relations(messages, ({ one, many }) => ({
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
 
-export type WorkerProfile = typeof users.$inferSelect;
-export type NewWorkerProfile = typeof users.$inferInsert;
+export type WorkerProfile = typeof worker_profiles.$inferSelect;
+export type NewWorkerProfile = typeof worker_profiles.$inferInsert;
 
-export type Service = typeof users.$inferSelect;
-export type NewService = typeof users.$inferInsert;
+export type Service = typeof services.$inferSelect;
+export type NewService = typeof services.$inferInsert;
 
-export type WorkerService = typeof users.$inferSelect;
-export type NewWorkerService = typeof users.$inferInsert;
+export type WorkerService = typeof worker_services.$inferSelect;
+export type NewWorkerService = typeof worker_services.$inferInsert;
 
-export type Booking = typeof users.$inferSelect;
-export type NewBooking = typeof users.$inferInsert;
+export type Booking = typeof booking.$inferSelect;
+export type NewBooking = typeof booking.$inferInsert;
 
-export type Reviews = typeof users.$inferSelect;
-export type NewReview = typeof users.$inferInsert;
+export type Reviews = typeof reviews.$inferSelect;
+export type NewReview = typeof reviews.$inferInsert;
 
-export type Chat = typeof users.$inferSelect;
-export type NewChat = typeof users.$inferInsert;
+export type Chat = typeof chats.$inferSelect;
+export type NewChat = typeof chats.$inferInsert;
 
-export type Message = typeof users.$inferSelect;
-export type NewMessage = typeof users.$inferInsert;
+export type Message = typeof messages.$inferSelect;
+export type NewMessage = typeof messages.$inferInsert;
