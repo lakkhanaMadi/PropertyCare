@@ -1,30 +1,25 @@
 
-import { sql } from "drizzle-orm";
-import { pgTable, integer, uuid, text, boolean, timestamp, time, pgEnum, numeric, check, date, jsonb } from "drizzle-orm/pg-core";
+import { relations, sql } from "drizzle-orm";
+import { pgTable, integer, uuid, text, boolean, timestamp, time, pgEnum, numeric, check, date, jsonb, unique } from "drizzle-orm/pg-core";
 
 
 //user
-export const users = pgTable('users', {
-  id: uuid('id').notNull().primaryKey().defaultRandom(),
-  clerk_user_id: text('clerk_user_id').notNull(),
-  email: text('email').unique().notNull(),
-  user_name: text('name').notNull(),
-  avatar_url: text('avatar_url'),
-  phone_number: text('phone_number').notNull(),
-  phone_verified: boolean('phone_verified'),
-  is_active: boolean('is_active'),
-  created_at: timestamp('created_at').notNull(),
-  updated_at: timestamp('updated_at').notNull(),
-});
-
-
-//user roles
 export const rolesEnum = pgEnum('roles', ['homeowner', 'worker', 'admin']);
 
-export const user_roles = pgTable('user_roles', {
-  id: uuid('id').references(() => users.id, { onDelete: 'cascade', onUpdate: 'cascade' }).primaryKey(),
-  role: rolesEnum('role').notNull()
+export const users = pgTable('users', {
+  id: uuid('id').notNull().primaryKey().defaultRandom(),
+  clerk_user_id: text('clerk_user_id'),
+  email: text('email').unique().notNull(),
+  user_name: text('name').notNull(),
+  role: rolesEnum('role').notNull().default('homeowner'),
+  avatar_url: text('avatar_url'),
+  phone_number: text('phone_number'),
+  phone_verified: boolean('phone_verified').default(false),
+  is_active: boolean('is_active').default(false),
+  created_at: timestamp('created_at', { mode: "date" }).notNull().defaultNow(),
+  updated_at: timestamp('updated_at', { mode: "date" }).notNull().defaultNow().$onUpdate(() => new Date())
 });
+
 
 //workers table
 export const worker_profiles = pgTable('worker_profiles', {
@@ -36,17 +31,19 @@ export const worker_profiles = pgTable('worker_profiles', {
   service_radius: integer('service_radius'),
   location: text('location'),
   hourly_rate: integer('hourly_rate'),
-  created_at: timestamp('created_at').defaultNow().notNull(),
-  updated_at: timestamp('updated_at').defaultNow().notNull()
+  created_at: timestamp('created_at', { mode: "date" }).notNull().defaultNow(),
+  updated_at: timestamp('updated_at', { mode: "date" }).notNull().defaultNow().$onUpdate(() => new Date())
+
 });
 
 //services table
 export const services = pgTable('services', {
-  id: uuid('id').defaultRandom().notNull().primaryKey(),
-  name: text('name').notNull(),
-  description: text('description'),
-  created_at: timestamp('created_at').defaultNow().notNull(),
-  updated_at: timestamp('updated_at').defaultNow().notNull()
+  id: uuid('id').notNull().primaryKey().defaultRandom(),
+  name: text('name').notNull().unique(),
+  description: text('description').notNull(),
+  created_at: timestamp('created_at', { mode: "date" }).notNull().defaultNow(),
+  updated_at: timestamp('updated_at', { mode: "date" }).notNull().defaultNow().$onUpdate(() => new Date())
+
 
 });
 
@@ -57,13 +54,14 @@ export const worker_services = pgTable('worker_services', {
   service_id: uuid('service_id').notNull().references(() => services.id),
   price_min: numeric('price_min', { precision: 10, scale: 2 }).notNull(),
   price_max: numeric('price_max', { precision: 10, scale: 2 }).notNull(),
-  created_at: timestamp('created_at').defaultNow().notNull(),
-  updated_at: timestamp('updated_at').defaultNow().notNull(),
+  created_at: timestamp('created_at', { mode: "date" }).notNull().defaultNow(),
+  updated_at: timestamp('updated_at', { mode: "date" }).notNull().defaultNow().$onUpdate(() => new Date())
+
 },
   (table) => ({
+    workerServiceUnique: unique().on(table.worker_id,table.service_id),
 
-    //to make sure max_price and min_price is non negative
-
+    //to make sure max_price and min_price is non negative and max price >= min price
     pricePositive: check('price_positive', sql`${table.price_min}>=0 AND ${table.price_max} >=0`),
     priceRangeValid: check('price_range_valid', sql`${table.price_max}>= ${table.price_min}`)
   })
@@ -75,13 +73,15 @@ export const bookingEnum = pgEnum('bookings', ['pending', 'confirmed', 'complete
 export const booking = pgTable('booking', {
   id: uuid('id').primaryKey().notNull().defaultRandom(),
   homeowner_id: uuid('homeowner_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
-  worker_service_id: uuid('worker_service_id').notNull().references(() => worker_services.id, { onDelete: 'cascade' }),
+  worker_service_id: uuid('worker_service_id').notNull().references(() => worker_services.id, { onDelete: 'restrict' }),
   status: bookingEnum('status').notNull(),
   scheduled_date: date('scheduled_date').notNull(),
   scheduled_time: time('scheduled_time').notNull(),
   address: text('address').notNull(),
-  created_at: timestamp('created_at').defaultNow().notNull(),
-  updated_at: timestamp('updated_at').defaultNow().notNull(),
+  agreed_price: numeric('agreed_price', { precision: 10, scale: 2 }),
+  created_at: timestamp('created_at', { mode: "date" }).notNull().defaultNow(),
+  updated_at: timestamp('updated_at', { mode: "date" }).notNull().defaultNow().$onUpdate(() => new Date())
+
 
 });
 
@@ -89,19 +89,22 @@ export const booking = pgTable('booking', {
 export const reviews = pgTable('reviews', {
   id: uuid('id').primaryKey().defaultRandom().notNull(),
   booking_id: uuid('booking_id').notNull().references(() => booking.id, { onDelete: 'cascade' }),
+  homeowner_id: uuid('homeowner_id').notNull().references(() => users.id, { onDelete: "cascade" }),
   content: text('content').notNull(),
-  created_at: timestamp('created_at').defaultNow().notNull(),
+  created_at: timestamp('created_at', { mode: "date" }).notNull().defaultNow(),
+
+
 
 });
 
 //chats table
 export const chats = pgTable('chats', {
   id: uuid('id').notNull().primaryKey().defaultRandom(),
-  homeowner_id: uuid('homeowner_id').notNull().references
-    (() => users.id, { onDelete: "cascade" }),
-  worker_id: uuid('worker_id').notNull().references(() => users.id, { onDelete: "cascade" }),
-  created_at: timestamp('created_at').defaultNow().notNull(),
-  updated_at: timestamp('updated_at').defaultNow().notNull(),
+  homeowner_id: uuid('homeowner_id').notNull().references(() => users.id, { onDelete: "cascade" }),
+  worker_id: uuid('worker_id').notNull().references(() => worker_profiles.id, { onDelete: "cascade" }),
+  created_at: timestamp('created_at', { mode: "date" }).notNull().defaultNow(),
+  updated_at: timestamp('updated_at', { mode: "date" }).notNull().defaultNow().$onUpdate(() => new Date())
+
 
 });
 
@@ -114,7 +117,80 @@ export const messages = pgTable('messages', {
   sender_id: uuid('sender_id').notNull().references(() => users.id, { onDelete: "cascade" }),
   message_type: messageEnum('message_type').notNull(),
   content: jsonb('content').notNull(),
-  created_at: timestamp('created_at').defaultNow().notNull(),
-  updated_at: timestamp('updated_at').defaultNow().notNull(),
+  created_at: timestamp('created_at', { mode: "date" }).notNull().defaultNow(),
+  updated_at: timestamp('updated_at', { mode: "date" }).notNull().defaultNow().$onUpdate(() => new Date())
+
 
 });
+
+//relations
+export const homeownerRelations = relations(users, ({ many }) => ({
+  booking: many(booking),
+  reviews: many(reviews),
+  chats: many(chats),
+  messages: many(messages)
+}));
+
+export const workerProfileRelations = relations(worker_profiles, ({ one }) => ({
+  user: one(users, { fields: [worker_profiles.worker_id], references: [users.id] }),
+}));
+
+export const workerServicesRelations = relations(worker_services, ({ one }) => ({
+  worker: one(worker_profiles, { fields: [worker_services.worker_id], references: [worker_profiles.id] }),
+  service: one(services, { fields: [worker_services.service_id], references: [services.id] }),
+}));
+
+export const workerRelations = relations(worker_profiles, ({ many }) => ({
+  workerServices: many(worker_services)
+}));
+
+export const serviceRelations = relations(services, ({ many }) => ({
+  workerServices: many(worker_services)
+}));
+
+export const bookingRelations = relations(booking, ({ one, many }) => ({
+  homeowner: one(users, { fields: [booking.homeowner_id], references: [users.id] }),
+  workerService: one(worker_services, { fields: [booking.worker_service_id], references: [worker_services.id] }),
+  reviews: many(reviews)
+}));
+
+export const reviewsRelations = relations(reviews, ({ one }) => ({
+  homeowner: one(users, { fields: [reviews.homeowner_id], references: [users.id] }),
+  booking: one(booking, { fields: [reviews.booking_id], references: [booking.id] })
+}));
+
+export const chatsRelations = relations(chats, ({ one, many }) => ({
+  homeowner: one(users, { fields: [chats.homeowner_id], references: [users.id] }),
+  worker: one(worker_profiles, { fields: [chats.worker_id], references: [worker_profiles.id] }),
+  messages: many(messages)
+}));
+
+export const messagesRelations = relations(messages, ({ one, many }) => ({
+  sender: one(users, { fields: [messages.sender_id], references: [users.id] }),
+  chat: one(chats, { fields: [messages.chat_id], references: [chats.id] })
+}));
+
+//type Inference
+export type User = typeof users.$inferSelect;
+export type NewUser = typeof users.$inferInsert;
+
+export type WorkerProfile = typeof worker_profiles.$inferSelect;
+export type NewWorkerProfile = typeof worker_profiles.$inferInsert;
+
+export type Service = typeof services.$inferSelect;
+export type NewService = typeof services.$inferInsert;
+
+export type WorkerService = typeof worker_services.$inferSelect;
+export type NewWorkerService = typeof worker_services.$inferInsert;
+
+export type Booking = typeof booking.$inferSelect;
+export type NewBooking = typeof booking.$inferInsert;
+
+export type Reviews = typeof reviews.$inferSelect;
+export type NewReview = typeof reviews.$inferInsert;
+
+export type Chat = typeof chats.$inferSelect;
+export type NewChat = typeof chats.$inferInsert;
+
+export type Message = typeof messages.$inferSelect;
+export type NewMessage = typeof messages.$inferInsert;

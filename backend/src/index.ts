@@ -1,8 +1,11 @@
 import express from "express";
 import { ENV } from "./config/env";
-import { clerkMiddleware } from "@clerk/express";
+import { clerkMiddleware, requireAuth } from "@clerk/express";
 import { testConenction } from "./db/index";
 import cors from "cors";
+
+//routes
+import authRoutes from "./routes/authRoutes";
 
 const app = express()
 
@@ -15,7 +18,9 @@ app.get("/", (req, res) => {
   res.json({ success: true })
 });
 
-//TODO: register routes
+// routes
+app.use("/api/user", authRoutes);
+
 
 //test connection and start
 async function startServer() {
