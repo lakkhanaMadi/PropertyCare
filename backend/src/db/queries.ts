@@ -13,6 +13,7 @@ import {
   NewReview, NewChat, NewMessage,
   NewService,
 } from "./schemas";
+import { worker } from "node:cluster";
 
 
 //USER QUERIES
@@ -23,9 +24,9 @@ export const createUser = async (data: NewUser) => {
   //if role=='worker', add user to worker profile schema
   if (user.role == 'worker') {
     const workerProfile: NewWorkerProfile = {
-      worker_id: user.id,
+      id: user.id,
       bio: "",
-      exprience_years: 0,
+      experience_years: 0,
       service_radius: 0,
       location: "",
       hourly_rate: 0,
@@ -50,14 +51,11 @@ export const updateUser = async (id: string, data: Partial<NewUser>) => {
 //upsert will either create or update
 export const upsertUser = async (data: NewUser) => {
 
-  if (data.id !== undefined) {
-    const existingUser = await getUserById(data.id)
-    if (existingUser) {
-      const { id, ...updatePayload } = data;
-      return updateUser(id, updatePayload);
-    }
-  } else {
-    console.log('User with ID not found')
+  const existingUser = await getUserById(data.id);
+
+  if (existingUser) {
+    const { id, ...updatePayLoad } = data;
+    return updateUser(id, updatePayLoad);
   }
 
   return createUser(data);
@@ -81,21 +79,21 @@ export const createProfile = async (data: NewWorkerProfile) => {
 };
 
 export const getProfile = async (worker_id: string) => {
-  return db.query.worker_profiles.findFirst({ where: eq(worker_profiles.worker_id, worker_id) });
+  return db.query.worker_profiles.findFirst({ where: eq(worker_profiles.id, worker_id) });
 }
 
 export const updateProfile = async (id: string, data: Partial<NewWorkerProfile>) => {
-  const [profile] = await db.update(worker_profiles).set(data).where(eq(worker_profiles.worker_id, id)).returning();
+  const [profile] = await db.update(worker_profiles).set(data).where(eq(worker_profiles.id, id)).returning();
   return profile;
 }
 
 export const upsertProfile = async (data: NewWorkerProfile) => {
 
-  if (data.worker_id !== undefined) {
-    const existingProfile = await getProfile(data.worker_id)
+  if (data.id !== undefined) {
+    const existingProfile = await getProfile(data.id)
     if (existingProfile) {
-      const { worker_id, ...updatePayload } = data
-      return updateProfile(worker_id, updatePayload)
+      const { id, ...updatePayload } = data
+      return updateProfile(id, updatePayload)
     }
   }
 
@@ -121,6 +119,10 @@ export const getService = async (id: string) => {
   return db.query.services.findFirst({ where: eq(services.id, id) });
 };
 
+export const getAllServices = async () => {
+  return db.select({ name: services.name }).from(services);
+}
+
 export const updateService = async (id: string, data: Partial<NewService>, adminUserRole: string) => {
 
   if (adminUserRole !== 'admin') {
@@ -133,12 +135,14 @@ export const updateService = async (id: string, data: Partial<NewService>, admin
 
 export const upsertServices = async (data: NewService, adminUserRole: string) => {
 
-  if (data.id !== undefined) {
-    const existingService = await getService(data.id)
-    if (existingService) {
-      const { id, ...updatePayload } = data
-      return updateService(id, updatePayload, adminUserRole)
-    }
+  if (adminUserRole !== 'admin') throw new Error("Unauthorized");
+
+  const existingService = await db.query.services.findFirst({
+    where: eq(services.name, data.name)
+  });
+
+  if (existingService) {
+    return await updateService(existingService.id, data, adminUserRole);
   }
 
   return createService(data, adminUserRole);
@@ -168,16 +172,36 @@ export const updateServiceProfile = async (id: string, data: Partial<NewWorkerSe
 };
 
 export const upsertServiceProfile = async (data: NewWorkerService) => {
-  if (data.id !== undefined) {
-    const existingServiceProfile = await getServiceProfile(data.id);
+  const existing = await db.query.worker_services.findFirst({
+    where: and(
+      eq(worker_services.worker_id, data.worker_id),
+      eq(worker_services.service_id, data.service_id)
+    ),
+  });
 
-    if (existingServiceProfile) {
-      const { id, ...updatePayLoad } = data
-      return updateServiceProfile(id, updatePayLoad)
-    }
+  if (existing) {
+    return updateServiceProfile(existing.id, data);
   }
 
   return createServiceProfile(data);
+};
+
+
+export const searchWorkersByService = async (serviceName: string) => {
+  return await db.select({
+    workerName: users.user_name,
+    avatar: users.avatar_url,
+    bio: worker_profiles.bio,
+    hourlyRate: worker_profiles.hourly_rate,
+    minPrice: worker_services.price_min,
+    maxPrice: worker_services.price_max,
+    service: services.name
+  })
+    .from(worker_services)
+    .innerJoin(services, eq(worker_services.service_id, services.id))
+    .innerJoin(worker_profiles, eq(worker_services.worker_id, worker_profiles.id))
+    .innerJoin(users, eq(worker_profiles.id, users.id))
+    .where(eq(services.name, serviceName));
 };
 
 
@@ -255,9 +279,23 @@ export const getUserInbox = async (userId: string) => {
   });
 };
 
-export const deleteChat = async (chatId: string) => {
-  const [chat] = await db.delete(chats).where(eq(chats.id, chatId)).returning();
-  return chat;
+export const deleteChat = async (chatId: string, currentUserId: string) => {
+
+  const existingChat = await db.query.chats.findFirst({
+    where: (chats, { and, or, eq }) =>
+      and(
+        eq(chats.id, chatId),
+        or(eq(chats.homeowner_id, currentUserId), eq(chats.worker_id, currentUserId))
+      ),
+  });
+
+  if (existingChat) {
+    const [chat] = await db.delete(chats).where(eq(chats.id, chatId)).returning();
+    return chat;
+  } else {
+    throw new Error("Chat doesn't exist!");
+  }
+
 };
 
 //MESSAGES QUERIES
