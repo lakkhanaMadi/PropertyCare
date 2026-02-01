@@ -1,5 +1,5 @@
 import { db } from "./index";
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, or, sql } from "drizzle-orm";
 import {
   users,
   worker_profiles,
@@ -13,8 +13,7 @@ import {
   NewReview, NewChat, NewMessage,
   NewService,
 } from "./schemas";
-import { worker } from "node:cluster";
-import { create } from "node:domain";
+
 
 //USER QUERIES
 export const createUser = async (data: NewUser) => {
@@ -64,6 +63,15 @@ export const upsertUser = async (data: NewUser) => {
   return createUser(data);
 };
 
+//ADMIN QUERIES
+export const adminGetUsers = async (role?: 'homeowner' | 'worker') => {
+  if (role) {
+    return await db.select().from(users).where(eq(users.role, role));
+  }
+  return await db.select().from(users);
+};
+
+
 
 //WORKER PROFILE QUERIES
 export const createProfile = async (data: NewWorkerProfile) => {
@@ -77,7 +85,7 @@ export const getProfile = async (worker_id: string) => {
 }
 
 export const updateProfile = async (id: string, data: Partial<NewWorkerProfile>) => {
-  const [profile] = await db.update(worker_profiles).set(data).where(eq(worker_profiles.id, id)).returning();
+  const [profile] = await db.update(worker_profiles).set(data).where(eq(worker_profiles.worker_id, id)).returning();
   return profile;
 }
 
@@ -95,8 +103,17 @@ export const upsertProfile = async (data: NewWorkerProfile) => {
 }
 
 //SERVICES QUERIES
-export const createService = async (data: NewService) => {
-  const [service] = await db.insert(services).values(data).returning();
+export const createService = async (data: NewService, adminUserRole: string) => {
+
+  if (adminUserRole !== 'admin') {
+    throw new Error('Unauthorized: Only admins can create a service');
+  }
+
+  const cleanData = {
+    ...data, name: data.name.trim()
+  };
+
+  const [service] = await db.insert(services).values(cleanData).returning();
   return service;
 };
 
@@ -104,23 +121,36 @@ export const getService = async (id: string) => {
   return db.query.services.findFirst({ where: eq(services.id, id) });
 };
 
-export const updateService = async (id: string, data: Partial<NewService>) => {
-  const [profile] = await db.update(services).set(data).where(eq(services.id, id)).returning();
-  return profile;
+export const updateService = async (id: string, data: Partial<NewService>, adminUserRole: string) => {
+
+  if (adminUserRole !== 'admin') {
+    throw new Error('Unauthorized: Only admins can update a service');
+  }
+
+  const [service] = await db.update(services).set(data).where(eq(services.id, id)).returning();
+  return service;
 };
 
-export const upsertServices = async (data: NewService) => {
+export const upsertServices = async (data: NewService, adminUserRole: string) => {
 
   if (data.id !== undefined) {
     const existingService = await getService(data.id)
     if (existingService) {
       const { id, ...updatePayload } = data
-      return updateService(id, updatePayload)
+      return updateService(id, updatePayload, adminUserRole)
     }
   }
 
-  return createService(data);
+  return createService(data, adminUserRole);
 };
+
+export const deleteService = async (id: string, adminUserRole: string) => {
+  if (adminUserRole !== 'admin') {
+    throw new Error('Unauthorized: Only admins can update a service');
+  }
+  const [service] = await db.delete(services).where(eq(services.id, id)).returning();
+  return service;
+}
 
 //WORKER SERVICES QUERIES
 export const createServiceProfile = async (data: NewWorkerService) => {
@@ -181,6 +211,20 @@ export const getReviewByBooking = async (booking_id: string) => {
   return db.select().from(reviews).where(eq(reviews.booking_id, booking_id));
 }
 
+export const deleteReview = async (id: string, userRole: string, userId: string) => {
+  const [review] = await db.delete(reviews).where(
+    and(
+      eq(reviews.id, id),
+      or(
+        eq(reviews.homeowner_id, userId),
+        eq(sql`${userRole}`, 'admin')
+      )
+    )
+  ).returning();
+
+  return review;
+}
+
 //CHATS QUERIES
 export const getOrCreateChat = async (homeownerId: string, workerId: string) => {
   const existingChat = await db.query.chats.findFirst({
@@ -211,6 +255,11 @@ export const getUserInbox = async (userId: string) => {
   });
 };
 
+export const deleteChat = async (chatId: string) => {
+  const [chat] = await db.delete(chats).where(eq(chats.id, chatId)).returning();
+  return chat;
+};
+
 //MESSAGES QUERIES
 export const createMessage = async (chatId: string, senderId: string, content: any, type: 'text' | 'image' | 'location' | 'file') => {
   return await db.transaction(async (tx) => {
@@ -230,5 +279,12 @@ export const createMessage = async (chatId: string, senderId: string, content: a
 
 export const getMessage = async (chatId: string) => {
   return db.select().from(messages).where(eq(messages.chat_id, chatId));
-}
+};
+
+export const deleteMessage = async (messageId: string) => {
+  const [message] = await db.delete(messages).where(eq(messages.id, messageId)).returning();
+  return message;
+};
+
+
 
