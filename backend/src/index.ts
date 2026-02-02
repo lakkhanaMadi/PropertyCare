@@ -5,7 +5,8 @@ import { testConenction } from "./db/index";
 import cors from "cors";
 
 //routes
-import authRoutes from "./routes/authRoutes";
+import userRoutes from "./routes/userRoutes";
+import servicesRoutes from "./routes/servicesRoutes"
 
 const app = express()
 
@@ -19,7 +20,8 @@ app.get("/", (req, res) => {
 });
 
 // routes
-app.use("/api/user", authRoutes);
+app.use("/api/users", userRoutes);
+app.use("/api/services", servicesRoutes);
 
 
 //test connection and start
