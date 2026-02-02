@@ -4,8 +4,9 @@ import { requireAuth } from "@clerk/express";
 
 const router = Router();
 
-//get all services
+
 router.get("/", servicesController.getAllServices);
-// router.post("/add-service", requireAuth, servicesController.createService);
+router.get("/:id", servicesController.getServiceById);
+
 
 export default router;
