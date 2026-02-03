@@ -90,7 +90,7 @@ export const adminGetUsers = async (role?: 'homeowner' | 'worker') => {
 //WORKER PROFILE QUERIES
 export const createProfile = async (data: NewWorkerProfile) => {
 
-  const [profile] = await db.insert(worker_profiles).values(data).returning();
+  const [profile] = await db.insert(worker_profiles).values(data).onConflictDoNothing().returning();
   return profile;
 };
 

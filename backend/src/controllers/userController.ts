@@ -8,7 +8,7 @@ export async function syncUser(req: Request, res: Response) {
     const { userId } = getAuth(req)
     if (!userId) return res.status(401).json({ error: "Unauthorized" })
 
-    const { email, name, role, avatarUrl,phoneNumber } = req.body;
+    const { email, name, role, avatarUrl, phoneNumber } = req.body;
 
     if (!email || !name || !phoneNumber) {
       return res.status(400).json({ error: "Email, name, and phone number are required" });
@@ -22,6 +22,23 @@ export async function syncUser(req: Request, res: Response) {
       avatar_url: avatarUrl,
       phone_number: phoneNumber,
     })
+
+    if (role == 'worker') {
+      const existingWorker = await queries.getProfile(userId);
+      if (!existingWorker) {
+        await queries.createProfile({
+          id: userId,
+          bio: "",
+          experience_years: 0,
+          service_radius: 0,
+          location: "",
+          hourly_rate: 0
+        })
+
+        return res.status(201).json({ message: "Worker profile created", data: users });
+
+      }
+    }
 
     res.status(200).json(users)
   } catch (error) {
