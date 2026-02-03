@@ -18,7 +18,7 @@ export async function syncUser(req: Request, res: Response) {
       id: userId,
       email,
       user_name: name,
-      role,
+      role: role,
       avatar_url: avatarUrl,
       phone_number: phoneNumber,
     })
@@ -28,4 +28,4 @@ export async function syncUser(req: Request, res: Response) {
     console.error("Error syncing user: ", error);
     res.status(500).json({ error: "Failed to sync user" });
   }
-}
+};

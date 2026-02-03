@@ -13,7 +13,6 @@ import {
   NewReview, NewChat, NewMessage,
   NewService,
 } from "./schemas";
-import { worker } from "node:cluster";
 
 
 //USER QUERIES
@@ -53,12 +52,29 @@ export const upsertUser = async (data: NewUser) => {
 
   const existingUser = await getUserById(data.id);
 
+  let user;
   if (existingUser) {
     const { id, ...updatePayLoad } = data;
-    return updateUser(id, updatePayLoad);
+    user = await updateUser(id, updatePayLoad);
+  } else {
+    user = await createUser(data);
   }
 
-  return createUser(data);
+  if (user.role === 'worker') {
+    const profile = await getProfile(user.id);
+    if (!profile) {
+      await createProfile({
+        id: user.id,
+        bio: "",
+        experience_years: 0,
+        service_radius: 0,
+        location: "",
+        hourly_rate: 0,
+      });
+    }
+  }
+
+  return user;
 };
 
 //ADMIN QUERIES
@@ -137,15 +153,22 @@ export const upsertServices = async (data: NewService, adminUserRole: string) =>
 
   if (adminUserRole !== 'admin') throw new Error("Unauthorized");
 
-  const existingService = await db.query.services.findFirst({
-    where: eq(services.name, data.name)
-  });
+  const cleanName = data.name.trim();
 
-  if (existingService) {
-    return await updateService(existingService.id, data, adminUserRole);
-  }
+  // "Upsert" using ON CONFLICT logic
+  const [service] = await db
+    .insert(services)
+    .values({ ...data, name: cleanName })
+    .onConflictDoUpdate({
+      target: services.name, // If the NAME already exists...
+      set: {
+        // ...update these fields instead of inserting
+        updated_at: new Date()
+      },
+    })
+    .returning();
 
-  return createService(data, adminUserRole);
+  return service;
 };
 
 export const deleteService = async (id: string, adminUserRole: string) => {
