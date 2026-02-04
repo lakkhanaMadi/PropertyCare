@@ -40,7 +40,7 @@ export async function syncUser(req: Request, res: Response) {
       }
     }
 
-    res.status(200).json(users)
+    return res.status(200).json(users)
   } catch (error) {
     console.error("Error syncing user: ", error);
     res.status(500).json({ error: "Failed to sync user" });
