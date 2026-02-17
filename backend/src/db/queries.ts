@@ -90,7 +90,7 @@ export const adminGetUsers = async (role?: 'homeowner' | 'worker') => {
 //WORKER PROFILE QUERIES
 export const createProfile = async (data: NewWorkerProfile) => {
 
-  const [profile] = await db.insert(worker_profiles).values(data).returning();
+  const [profile] = await db.insert(worker_profiles).values(data).onConflictDoNothing().returning();
   return profile;
 };
 
@@ -131,7 +131,7 @@ export const createService = async (data: NewService, adminUserRole: string) => 
   return service;
 };
 
-export const getService = async (id: string) => {
+export const getServiceById = async (id: string) => {
   return db.query.services.findFirst({ where: eq(services.id, id) });
 };
 
@@ -189,6 +189,7 @@ export const getServiceProfile = async (id: string) => {
   return db.query.worker_services.findFirst({ where: eq(worker_services.id, id) });
 };
 
+
 export const updateServiceProfile = async (id: string, data: Partial<NewWorkerService>) => {
   const [profile] = await db.update(worker_services).set(data).where(eq(worker_services.id, id)).returning();
   return profile;
@@ -209,8 +210,19 @@ export const upsertServiceProfile = async (data: NewWorkerService) => {
   return createServiceProfile(data);
 };
 
+export const removeWorkerService = async (workerId: string, serviceId: string) => {
+  return await db
+    .delete(worker_services)
+    .where(
+      and(
+        eq(worker_services.worker_id, workerId),
+        eq(worker_services.service_id, serviceId)
+      )
+    )
+    .returning();
+};
 
-export const searchWorkersByService = async (serviceName: string) => {
+export const searchWorkersByService = async (id: string) => {
   return await db.select({
     workerName: users.user_name,
     avatar: users.avatar_url,
@@ -224,7 +236,7 @@ export const searchWorkersByService = async (serviceName: string) => {
     .innerJoin(services, eq(worker_services.service_id, services.id))
     .innerJoin(worker_profiles, eq(worker_services.worker_id, worker_profiles.id))
     .innerJoin(users, eq(worker_profiles.id, users.id))
-    .where(eq(services.name, serviceName));
+    .where(eq(services.id, id));
 };
 
 
@@ -234,13 +246,59 @@ export const createBooking = async (data: NewBooking) => {
   return newBooking;
 };
 
-export const getBookingInfo = async (id: string, homeownerId: string) => {
-  return db.select().from(booking).where(and(eq(booking.id, id), eq(booking.homeowner_id, homeownerId)));
+export const getBookingInfo = async (id: string) => {
+  const [bookingInfo] = await db.select().from(booking).where(eq(booking.id, id));
+  return bookingInfo;
 }
 
 export const updateBookingInfo = async (id: string, data: Partial<NewBooking>) => {
   const [updatedBooking] = await db.update(booking).set(data).where(eq(booking.id, id)).returning();
   return updatedBooking;
+};
+
+export const getBookingWithWorker = async (bookingId: string) => {
+  return await db.select({
+    workerId: worker_services.worker_id,
+    status: booking.status,
+  })
+    .from(booking)
+    .innerJoin(worker_services, eq(booking.worker_service_id, worker_services.id))
+    .where(eq(booking.id, bookingId))
+    .limit(1);
+};
+
+export const getBookingsForHomeowner = async (homeownerId: string) => {
+  return await db.select({
+    id: booking.id,
+    status: booking.status,
+    date: booking.scheduled_date,
+    price: booking.agreed_price,
+    workerName: users.user_name,
+    serviceName: services.name
+  })
+    .from(booking)
+    .innerJoin(worker_services, eq(booking.worker_service_id, worker_services.id))
+    .innerJoin(users, eq(worker_services.worker_id, users.id))
+    .innerJoin(services, eq(worker_services.service_id, services.id))
+    .where(eq(booking.homeowner_id, homeownerId));
+};
+
+export const getBookingsForWorker = async (workerId: string) => {
+  return await db.select({
+    id: booking.id,
+    status: booking.status,
+    date: booking.scheduled_date,
+    time: booking.scheduled_time,
+    address: booking.address,
+    price: booking.agreed_price,
+    homeownerName: users.user_name,
+    serviceName: services.name
+  })
+    .from(booking)
+    .innerJoin(worker_services, eq(booking.worker_service_id, worker_services.id))
+    .innerJoin(users, eq(booking.homeowner_id, users.id))
+    .innerJoin(services, eq(worker_services.service_id, services.id))
+    .where(eq(worker_services.worker_id, workerId));
 };
 
 
@@ -256,6 +314,25 @@ export const viewReview = async (id: string, booking_id: string) => {
 
 export const getReviewByBooking = async (booking_id: string) => {
   return db.select().from(reviews).where(eq(reviews.booking_id, booking_id));
+}
+
+export const getReviewsByWorker = async (worker_id: string) => {
+  return db.select({
+    id: reviews.id,
+    rating: reviews.rating,
+    comment: reviews.comment,
+    createdAt: reviews.created_at,
+    homeownerName: users.user_name,
+    homeownerAvatar: users.avatar_url,
+    serviceName: services.name,
+  })
+    .from(reviews)
+    .innerJoin(users, eq(reviews.homeowner_id, users.id))
+    .innerJoin(booking, eq(reviews.booking_id, booking.id))
+    .innerJoin(worker_services, eq(booking.worker_service_id, worker_services.id))
+    .innerJoin(services, eq(worker_services.service_id, services.id))
+    .where(eq(worker_services.worker_id, worker_id))
+    .orderBy(desc(reviews.created_at));
 }
 
 export const deleteReview = async (id: string, userRole: string, userId: string) => {

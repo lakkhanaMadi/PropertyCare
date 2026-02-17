@@ -8,11 +8,11 @@ const router = Router();
 
 //PUBLIC ROUTES
 router.get("/", servicesController.getAllServices);
-router.get("/:id", servicesController.getServiceById);
+router.get("/:id/workers", servicesController.getWorkersByService);
 
 //ADMIN AUTHORIZED ROUTES
 router.post("/", isAdmin, requireAuth, servicesController.createService);
-router.put("/:id", isAdmin, requireAuth, servicesController.updateService);
+router.patch("/:id", isAdmin, requireAuth, servicesController.updateService);
 router.delete("/:id", isAdmin, requireAuth, servicesController.deleteService);
 
 export default router;

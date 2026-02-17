@@ -6,7 +6,9 @@ import cors from "cors";
 
 //routes
 import userRoutes from "./routes/userRoutes";
-import servicesRoutes from "./routes/servicesRoutes"
+import servicesRoutes from "./routes/servicesRoutes";
+import workerRoutes from "./routes/workerRoutes";
+import bookingRoutes from "./routes/bookingRoutes";
 
 const app = express()
 
@@ -19,9 +21,11 @@ app.get("/", (req, res) => {
   res.json({ success: true })
 });
 
-// routes
+// ROUTES
 app.use("/api/users", userRoutes);
+app.use("/api/worker", workerRoutes);
 app.use("/api/services", servicesRoutes);
+app.use("/api/bookings", bookingRoutes);
 
 
 //test connection and start
