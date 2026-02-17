@@ -14,23 +14,6 @@ export const getAllServices = async (req: Request, res: Response) => {
   }
 };
 
-export const getServiceById = async (req: Request, res: Response) => {
-  try {
-    const id = uuidSchema.parse(req.params.id);
-    const service = await queries.getService(id);
-
-    if (!service) return res.status(404).json({ error: "Service not found" });
-    res.status(200).json(service);
-  } catch (error: any) {
-    if (error instanceof ZodError) {
-      return res.status(400).json({ error: "Invalid ID format", details: error.issues });
-    }
-
-    console.error("Error getting service: ", error);
-    res.status(500).json({ error: "Failed to get service" });
-  }
-};
-
 export const createService = async (req: Request, res: Response) => {
   try {
     const adminUser = (req as any).user;
@@ -96,5 +79,26 @@ export const deleteService = async (req: Request, res: Response) => {
 
     console.error("Error in deleting service", error);
     return res.status(500).json({ error: "Failed to delete service" });
+  }
+};
+
+export const getWorkersByService = async (req: Request, res: Response) => {
+  try {
+
+    const serviceId = uuidSchema.parse(req.params.id);
+    if (!serviceId) {
+      return res.status(404).json({ error: "Service not found" });
+    }
+    const service = await queries.getServiceById(serviceId);
+    if (!service) {
+      return res.status(404).json({ error: "Service not found" });
+    }
+
+    const workers = await queries.searchWorkersByService(serviceId);
+    return res.status(200).json({ serviceInfo: service.name, workers: workers });
+
+  } catch (error) {
+    console.error("Error in fetching workers for this service");
+    return res.status(500).json({ error: "Failed to fetch workers for this service" });
   }
 };

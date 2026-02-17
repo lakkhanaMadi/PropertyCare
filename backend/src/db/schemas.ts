@@ -28,7 +28,7 @@ export const users = pgTable("users", {
   role: rolesEnum("role").notNull().default("homeowner"),
   avatar_url: text("avatar_url"),
   phone_number: text("phone_number"),
-  phone_verified: boolean("phone_verified").default(false),
+  email_verified: boolean("email_verified").default(false),
   is_active: boolean("is_active").default(false),
   created_at: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
   updated_at: timestamp("updated_at", { mode: "date" })
@@ -137,12 +137,12 @@ export const booking = pgTable("booking", {
     .notNull()
     .references(() => worker_services.id, { onDelete: "restrict" }),
 
-  status: bookingEnum("status").notNull(),
+  status: bookingEnum("status").notNull().default("pending"),
   scheduled_date: date("scheduled_date").notNull(),
   scheduled_time: time("scheduled_time").notNull(),
   address: text("address").notNull(),
   agreed_price: numeric("agreed_price", { precision: 10, scale: 2 }),
-
+  is_price_confirmed: boolean("is_price_confirmed").default(false),
   created_at: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
   updated_at: timestamp("updated_at", { mode: "date" })
     .notNull()
@@ -164,8 +164,8 @@ export const reviews = pgTable("reviews", {
   homeowner_id: text("homeowner_id")
     .notNull()
     .references(() => users.id, { onDelete: "cascade" }),
-
-  content: text("content").notNull(),
+  rating: integer("rating").notNull(),
+  comment: text("comment").notNull(),
   created_at: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
 });
 

@@ -8,6 +8,7 @@ import cors from "cors";
 import userRoutes from "./routes/userRoutes";
 import servicesRoutes from "./routes/servicesRoutes";
 import workerRoutes from "./routes/workerRoutes";
+import bookingRoutes from "./routes/bookingRoutes";
 
 const app = express()
 
@@ -24,6 +25,7 @@ app.get("/", (req, res) => {
 app.use("/api/users", userRoutes);
 app.use("/api/worker", workerRoutes);
 app.use("/api/services", servicesRoutes);
+app.use("/api/bookings", bookingRoutes);
 
 
 //test connection and start

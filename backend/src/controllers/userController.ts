@@ -1,7 +1,9 @@
 import type { Request, Response } from "express";
 import * as queries from "../db/queries"
-
+import { z, ZodError } from "zod";
 import { getAuth } from "@clerk/express";
+
+const uuidSchema = z.string().uuid("Invalid UUID format");
 
 export async function syncUser(req: Request, res: Response) {
   try {
@@ -9,6 +11,7 @@ export async function syncUser(req: Request, res: Response) {
     if (!userId) return res.status(401).json({ error: "Unauthorized" })
 
     const { email, name, role, avatarUrl, phoneNumber } = req.body;
+    const isEmailVerified = true;
 
     if (!email || !name || !phoneNumber) {
       return res.status(400).json({ error: "Email, name, and phone number are required" });
@@ -21,6 +24,8 @@ export async function syncUser(req: Request, res: Response) {
       role: role,
       avatar_url: avatarUrl,
       phone_number: phoneNumber,
+      email_verified: isEmailVerified,
+      is_active: true,
     })
 
     if (role == 'worker') {

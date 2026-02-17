@@ -1,8 +1,7 @@
 import { Request, Response } from "express";
 import * as queries from "../db/queries";
-import { uuid, z, ZodError } from "zod";
+import { z, ZodError } from "zod";
 import { getAuth } from "@clerk/express";
-import { get } from "node:http";
 
 const uuidSchema = z.string().uuid("Invalid UUID format");
 
@@ -107,6 +106,7 @@ export const updateServiceProfile = async (req: Request, res: Response) => {
       price_min,
       price_max,
     });
+
 
     if (!updatedServiceProfile) {
       return res.status(404).json({ error: "Service profile not found" });
